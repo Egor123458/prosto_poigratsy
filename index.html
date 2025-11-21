@@ -2,9 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Видео на фоне</title>
     <style>
         * {
@@ -18,17 +16,16 @@
             height: 100%;
             overflow: hidden;
             background: #000;
-            -webkit-overflow-scrolling: touch;
+            position: fixed;
         }
         
         #video-container {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            height: 100%;
             overflow: hidden;
-            z-index: -1;
         }
         
         video {
@@ -41,86 +38,136 @@
             height: auto;
             transform: translate(-50%, -50%);
             object-fit: cover;
-            -o-object-fit: cover;
-            -webkit-transform: translate(-50%, -50%);
         }
         
-        /* Фоллбэк для старых браузеров */
-        @supports not (object-fit: cover) {
-            video {
-                width: 100%;
-                height: 100%;
-            }
+        /* Оверлей для первого тапа (для Яндекса) */
+        #tap-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            cursor: pointer;
+            font-family: Arial, sans-serif;
+        }
+        
+        #tap-overlay.hidden {
+            display: none;
+        }
+        
+        .tap-message {
+            color: #fff;
+            font-size: 24px;
+            text-align: center;
+            padding: 20px;
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
         }
     </style>
 </head>
 <body>
+    <!-- Оверлей для запуска -->
+    <div id="tap-overlay">
+        <div class="tap-message">
+            👆 Нажмите для запуска
+        </div>
+    </div>
+
     <div id="video-container">
         <video 
             id="bg-video"
-            autoplay 
             muted 
             loop 
             playsinline
             webkit-playsinline
             preload="auto"
-            poster=""
+            x-webkit-airplay="allow"
         >
-            <!-- Основной формат -->
             <source src="background.mp4" type="video/mp4">
-            <!-- Запасной формат для Firefox/Chrome -->
-            <source src="background.webm" type="video/webm">
-            <!-- Для старых Safari -->
-            <source src="background.ogv" type="video/ogg">
         </video>
     </div>
 
     <script>
-        // Принудительный запуск видео для iOS и других мобильных браузеров
-        document.addEventListener('DOMContentLoaded', function() {
-            const video = document.getElementById('bg-video');
-            
-            // Попытка автозапуска
-            const playPromise = video.play();
-            
-            if (playPromise !== undefined) {
-                playPromise
-                    .then(() => {
-                        // Автозапуск удался
-                        console.log('Видео запущено автоматически');
-                    })
-                    .catch(error => {
-                        // Автозапуск заблокирован — запускаем по первому касанию/клику
-                        console.log('Автозапуск заблокирован, ожидание взаимодействия');
-                        
-                        const startVideo = () => {
-                            video.play();
-                            document.removeEventListener('touchstart', startVideo);
-                            document.removeEventListener('click', startVideo);
-                        };
-                        
-                        document.addEventListener('touchstart', startVideo);
-                        document.addEventListener('click', startVideo);
-                    });
-            }
-            
-            // Проверка на паузу и перезапуск
-            video.addEventListener('pause', function() {
-                video.play();
-            });
-            
-            // Для iOS: перезапуск при выходе из фона
-            document.addEventListener('visibilitychange', function() {
-                if (!document.hidden) {
-                    video.play();
+        const video = document.getElementById('bg-video');
+        const overlay = document.getElementById('tap-overlay');
+        let videoStarted = false;
+
+        // Функция запуска видео
+        function startVideo() {
+            if (!videoStarted) {
+                video.muted = true; // Принудительно без звука
+                
+                const playPromise = video.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise
+                        .then(() => {
+                            videoStarted = true;
+                            overlay.classList.add('hidden');
+                            console.log('Видео запущено');
+                        })
+                        .catch(error => {
+                            console.log('Ошибка запуска:', error);
+                            // Повторная попытка через 100мс
+                            setTimeout(() => {
+                                video.play();
+                            }, 100);
+                        });
                 }
-            });
+            }
+        }
+
+        // Попытка автозапуска
+        document.addEventListener('DOMContentLoaded', function() {
+            // Пробуем запустить сразу
+            startVideo();
+            
+            // Если не сработало — ждём взаимодействия
+            setTimeout(() => {
+                if (!videoStarted) {
+                    console.log('Автозапуск не удался, требуется взаимодействие');
+                }
+            }, 1000);
         });
-        
-        // Предотвращение зума на iOS
-        document.addEventListener('gesturestart', function(e) {
+
+        // Клик/тап для запуска
+        overlay.addEventListener('click', startVideo);
+        overlay.addEventListener('touchstart', startVideo);
+
+        // Запуск при любом взаимодействии с документом
+        document.addEventListener('click', startVideo, { once: true });
+        document.addEventListener('touchstart', startVideo, { once: true });
+
+        // Держим видео активным
+        video.addEventListener('pause', function() {
+            if (videoStarted) {
+                video.play();
+            }
+        });
+
+        // Перезапуск при возврате на страницу
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && videoStarted) {
+                video.play();
+            }
+        });
+
+        // Предотвращение прокрутки
+        document.addEventListener('touchmove', function(e) {
             e.preventDefault();
-        });
+        }, { passive: false });
     </script>
 </body>
 </html>
