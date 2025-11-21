@@ -3,138 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>-_-</title>
+    <title>Видео на фоне</title>
     <style>
-        * {
+        html, body {
+            height: 100%;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            height: 100vh;
             overflow: hidden;
-            font-family: 'Courier New', monospace;
+            background: #000;
         }
-        
-        /* Видео-фон */
-        #bg-video {
+        video {
             position: fixed;
             top: 50%;
             left: 50%;
-            min-width: 100%;
-            min-height: 100%;
+            min-width: 100vw;
+            min-height: 100vh;
             width: auto;
             height: auto;
             transform: translate(-50%, -50%);
-            z-index: -1;
             object-fit: cover;
-        }
-        
-        /* Затемнение поверх видео */
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 0;
-        }
-        
-        /* Контент */
-        .content {
-            position: relative;
-            z-index: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            text-align: center;
-        }
-        
-        h1 {
-            font-size: 64px;
-            color: #fff;
-            text-shadow: 0 0 20px rgba(0, 255, 0, 0.8),
-                         0 0 40px rgba(0, 255, 0, 0.6);
-            margin-bottom: 30px;
-            animation: glow 2s ease-in-out infinite;
-        }
-        
-        @keyframes glow {
-            0%, 100% { text-shadow: 0 0 20px rgba(0, 255, 0, 0.8); }
-            50% { text-shadow: 0 0 40px rgba(0, 255, 0, 1); }
-        }
-        
-        img {
-            max-width: 400px;
-            border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-            margin-top: 20px;
-        }
-        
-        /* Кнопка управления видео */
-        .video-controls {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 2;
-        }
-        
-        .control-btn {
-            background: rgba(0, 255, 0, 0.2);
-            border: 2px solid #00ff00;
-            color: #00ff00;
-            padding: 10px 20px;
-            cursor: pointer;
-            border-radius: 5px;
-            font-size: 16px;
-            transition: all 0.3s;
-        }
-        
-        .control-btn:hover {
-            background: rgba(0, 255, 0, 0.4);
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
         }
     </style>
 </head>
 <body>
-    <!-- Видео-фон -->
-    <video id="bg-video" autoplay muted loop playsinline>
+    <video autoplay muted loop playsinline>
         <source src="background.mp4" type="video/mp4">
-        <!-- Запасные форматы -->
-        <source src="background.webm" type="video/webm">
+        <!-- Можно добавить .webm -->
         Ваш браузер не поддерживает видео.
     </video>
-    
-    <!-- Затемнение -->
-    <div class="overlay"></div>
-    
-    <!-- Контент -->
->
-    
-    <!-- Кнопка управления -->
-    <div class="video-controls">
-        <button class="control-btn" onclick="toggleVideo()">⏸️ Пауза</button>
-    </div>
-    
-    <script>
-        const video = document.getElementById('bg-video');
-        const btn = document.querySelector('.control-btn');
-        let isPlaying = true;
-        
-        function toggleVideo() {
-            if (isPlaying) {
-                video.pause();
-                btn.textContent = '▶️ Играть';
-            } else {
-                video.play();
-                btn.textContent = '⏸️ Пауза';
-            }
-            isPlaying = !isPlaying;
-        }
-    </script>
 </body>
 </html>
