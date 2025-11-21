@@ -62,43 +62,24 @@
         
         .tap-message {
             color: #fff;
-            font-size: 20px;
+            font-size: 24px;
             padding: 30px 40px;
             background: rgba(0, 255, 0, 0.2);
             border: 3px solid #00ff00;
             border-radius: 15px;
             user-select: none;
-            text-align: center;
         }
         
         .tap-icon {
             font-size: 64px;
             margin-bottom: 20px;
         }
-        
-        .status {
-            margin-top: 20px;
-            font-size: 14px;
-            color: #aaa;
-        }
-        
-        .error {
-            color: #ff4444;
-            margin-top: 20px;
-            padding: 15px;
-            background: rgba(255, 68, 68, 0.1);
-            border: 2px solid #ff4444;
-            border-radius: 10px;
-            max-width: 90%;
-            font-size: 14px;
-        }
     </style>
 </head>
 <body>
     <div id="tap-overlay">
         <div class="tap-icon">▶️</div>
-        <div class="tap-message" id="message">Нажмите для запуска</div>
-        <div class="status" id="status"></div>
+        <div class="tap-message">Нажмите для запуска</div>
     </div>
 
     <div id="video-container">
@@ -108,155 +89,38 @@
             playsinline
             webkit-playsinline
             loop
-            preload="metadata"
+            preload="auto"
         >
-            <source src="background.mp4" type="video/mp4">
+            <!-- Тестовое видео - гарантированно работает -->
+            <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
         </video>
     </div>
 
     <script>
         const video = document.getElementById('bg-video');
         const overlay = document.getElementById('tap-overlay');
-        const message = document.getElementById('message');
-        const status = document.getElementById('status');
         
-        let clicked = false;
-        
-        function updateStatus(text, isError = false) {
-            console.log(text);
-            status.textContent = text;
-            if (isError) {
-                status.className = 'error';
-            }
-        }
-        
-        // Проверяем загрузку видео
-        function checkVideo() {
-            const src = video.querySelector('source').src;
-            updateStatus(`Путь: ${src}`);
-            
-            console.log('📹 Информация о видео:');
-            console.log('- Путь:', src);
-            console.log('- ReadyState:', video.readyState);
-            console.log('- NetworkState:', video.networkState);
-            console.log('- Error:', video.error);
-            
-            if (video.error) {
-                let errorText = 'Ошибка видео: ';
-                switch(video.error.code) {
-                    case 1: errorText += 'Загрузка прервана'; break;
-                    case 2: errorText += 'Ошибка сети. Проверьте файл!'; break;
-                    case 3: errorText += 'Ошибка декодирования'; break;
-                    case 4: errorText += 'Файл не найден или формат не поддерживается'; break;
-                }
-                updateStatus(errorText, true);
-                message.textContent = 'Видео не загрузилось';
-            }
-        }
-        
-        // Простейший запуск без сложной логики
         function startVideo(e) {
-            if (e) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
+            if (e) e.preventDefault();
             
-            if (clicked) return;
-            clicked = true;
-            
-            updateStatus('Попытка запуска...');
-            console.log('👆 Клик, запуск видео');
-            
-            // Проверяем состояние перед запуском
-            checkVideo();
-            
-            // Устанавливаем параметры
             video.muted = true;
             video.volume = 0;
             
-            // Простой запуск
             video.play()
                 .then(() => {
-                    console.log('✅ Видео запущено!');
-                    updateStatus('Видео воспроизводится ✓');
-                    
-                    setTimeout(() => {
-                        overlay.classList.add('hidden');
-                    }, 500);
+                    console.log('✅ Видео запущено');
+                    overlay.classList.add('hidden');
                 })
-                .catch(error => {
-                    console.error('❌ Ошибка play():', error);
-                    updateStatus(`Ошибка: ${error.message}`, true);
-                    message.textContent = 'Не удалось запустить';
-                    clicked = false;
+                .catch(err => {
+                    console.error('❌ Ошибка:', err);
+                    alert('Ошибка: ' + err.message);
                 });
         }
         
-        // События видео для диагностики
-        video.addEventListener('loadstart', () => {
-            console.log('📥 loadstart - начало загрузки');
-            updateStatus('Загрузка начата...');
-        });
-        
-        video.addEventListener('loadedmetadata', () => {
-            console.log('✅ loadedmetadata');
-            console.log('- Длительность:', video.duration);
-            console.log('- Размер:', video.videoWidth + 'x' + video.videoHeight);
-            updateStatus(`Видео: ${Math.round(video.duration)}сек, ${video.videoWidth}x${video.videoHeight}`);
-        });
-        
-        video.addEventListener('loadeddata', () => {
-            console.log('✅ loadeddata');
-        });
-        
-        video.addEventListener('canplay', () => {
-            console.log('✅ canplay - готово к воспроизведению');
-            updateStatus('Готово к воспроизведению');
-        });
-        
-        video.addEventListener('playing', () => {
-            console.log('▶️ playing');
-            updateStatus('Воспроизводится ✓');
-        });
-        
-        video.addEventListener('error', (e) => {
-            console.error('💥 Ошибка видео!');
-            checkVideo();
-        });
-        
-        video.addEventListener('stalled', () => {
-            console.warn('⚠️ stalled - загрузка остановилась');
-            updateStatus('Загрузка остановилась...', true);
-        });
-        
-        video.addEventListener('suspend', () => {
-            console.log('⏸️ suspend - загрузка приостановлена');
-        });
-        
-        video.addEventListener('waiting', () => {
-            console.log('⏳ waiting - буферизация');
-            updateStatus('Буферизация...');
-        });
-        
-        // Обработчики кликов
         overlay.addEventListener('click', startVideo);
         overlay.addEventListener('touchend', startVideo, { passive: false });
         
-        // Начинаем загрузку
-        console.log('🚀 Страница загружена');
-        console.log('📱 User Agent:', navigator.userAgent);
-        
         video.load();
-        
-        // Проверка через 2 секунды
-        setTimeout(() => {
-            checkVideo();
-            
-            if (video.readyState === 0) {
-                updateStatus('Видео не начало загружаться. Проверьте файл!', true);
-                message.textContent = 'Видео не найдено';
-            }
-        }, 2000);
     </script>
 </body>
 </html>
