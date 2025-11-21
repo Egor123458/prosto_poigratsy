@@ -17,7 +17,6 @@
             overflow: hidden;
             background: #000;
             position: fixed;
-            -webkit-overflow-scrolling: touch;
         }
         
         #video-container {
@@ -50,293 +49,267 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 0.9);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 10000;
             cursor: pointer;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            transition: opacity 0.5s ease;
+            font-family: Arial, sans-serif;
         }
         
         #tap-overlay.hidden {
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.5s ease 0.3s;
+            display: none;
         }
         
         .tap-message {
             color: #fff;
-            font-size: 28px;
+            font-size: 24px;
             font-weight: 600;
             text-align: center;
-            padding: 30px 50px;
-            background: linear-gradient(135deg, rgba(0, 255, 0, 0.15), rgba(0, 200, 0, 0.25));
+            padding: 30px 40px;
+            background: rgba(0, 255, 0, 0.2);
             border: 3px solid #00ff00;
-            border-radius: 20px;
-            animation: pulse 2s ease-in-out infinite;
+            border-radius: 15px;
             user-select: none;
             -webkit-user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            box-shadow: 0 8px 32px rgba(0, 255, 0, 0.3);
         }
         
         .tap-icon {
             font-size: 64px;
             margin-bottom: 20px;
-            animation: bounce 1.5s ease-in-out infinite;
         }
         
-        @keyframes pulse {
-            0%, 100% { 
-                opacity: 1; 
-                transform: scale(1);
-                box-shadow: 0 8px 32px rgba(0, 255, 0, 0.3);
-            }
-            50% { 
-                opacity: 0.85; 
-                transform: scale(1.02);
-                box-shadow: 0 8px 48px rgba(0, 255, 0, 0.5);
-            }
+        /* Индикатор загрузки */
+        .loading-spinner {
+            display: none;
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #00ff00;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-top: 30px;
         }
         
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+        .loading-spinner.active {
+            display: block;
         }
         
-        /* Дополнительная оптимизация для мобильных */
-        @media (max-width: 768px) {
-            .tap-message {
-                font-size: 22px;
-                padding: 25px 40px;
-            }
-            .tap-icon {
-                font-size: 56px;
-            }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Сообщение об ошибке */
+        .error-message {
+            display: none;
+            color: #ff4444;
+            font-size: 16px;
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 68, 68, 0.1);
+            border: 2px solid #ff4444;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+        
+        .error-message.active {
+            display: block;
         }
     </style>
 </head>
 <body>
     <div id="tap-overlay">
         <div class="tap-icon">▶️</div>
-        <div class="tap-message">
+        <div class="tap-message" id="tap-text">
             Нажмите для запуска видео
         </div>
+        <div class="loading-spinner" id="loading"></div>
+        <div class="error-message" id="error-msg"></div>
     </div>
 
     <div id="video-container">
         <video 
             id="bg-video"
             muted
-            loop
             playsinline
             webkit-playsinline
-            preload="none"
-            disablePictureInPicture
-            disableRemotePlayback
-            x5-video-player-type="h5"
-            x5-video-orientation="portraint"
+            loop
+            preload="auto"
         >
             <source src="background.mp4" type="video/mp4">
-            Ваш браузер не поддерживает видео
         </video>
     </div>
 
     <script>
         const video = document.getElementById('bg-video');
         const overlay = document.getElementById('tap-overlay');
-        const container = document.getElementById('video-container');
+        const tapText = document.getElementById('tap-text');
+        const loading = document.getElementById('loading');
+        const errorMsg = document.getElementById('error-msg');
         
-        let videoStarted = false;
-        let isPlaying = false;
-        let retryCount = 0;
-        const MAX_RETRIES = 10;
+        let clicked = false;
         
-        // Определяем тип браузера и устройства
-        const userAgent = navigator.userAgent.toLowerCase();
-        const isYandexBrowser = /yabrowser/i.test(userAgent);
-        const isAndroid = /android/i.test(userAgent);
-        const isMobile = /mobile|android|iphone|ipad/i.test(userAgent);
+        console.log('🚀 Инициализация...');
+        console.log('📹 Путь к видео:', video.querySelector('source').src);
         
-        console.log('🔍 Браузер:', isYandexBrowser ? 'Яндекс' : 'Другой');
-        console.log('📱 Мобильное устройство:', isMobile);
-        console.log('🤖 Android:', isAndroid);
+        // Сразу начинаем загружать видео
+        video.load();
         
-        // Функция для агрессивного запуска видео
-        function forcePlayVideo() {
-            if (isPlaying) {
-                console.log('⏸️ Видео уже воспроизводится');
-                return Promise.resolve();
-            }
+        function showError(message) {
+            console.error('❌', message);
+            tapText.style.display = 'none';
+            loading.classList.remove('active');
+            errorMsg.textContent = message;
+            errorMsg.classList.add('active');
             
-            retryCount++;
-            console.log(`🎬 Попытка запуска #${retryCount}`);
+            // Делаем overlay кликабельным для повтора
+            setTimeout(() => {
+                errorMsg.innerHTML = message + '<br><br>Нажмите для повтора';
+                clicked = false;
+            }, 1000);
+        }
+        
+        function startVideo() {
+            if (clicked) return;
+            clicked = true;
             
-            // Принудительная установка всех параметров
+            console.log('👆 Попытка запуска видео...');
+            
+            // Показываем индикатор загрузки
+            tapText.textContent = 'Загрузка...';
+            loading.classList.add('active');
+            errorMsg.classList.remove('active');
+            
+            // Проверяем, загружено ли видео
+            console.log('📊 ReadyState:', video.readyState);
+            console.log('📊 NetworkState:', video.networkState);
+            
+            // Принудительная перезагрузка
+            video.load();
+            
+            // Устанавливаем параметры
             video.muted = true;
             video.volume = 0;
             video.defaultMuted = true;
             
-            // Для старых webkit браузеров
-            video.setAttribute('muted', '');
-            video.setAttribute('playsinline', '');
-            video.setAttribute('webkit-playsinline', '');
+            // Пробуем запустить
+            const playPromise = video.play();
             
-            return video.play()
-                .then(() => {
-                    isPlaying = true;
-                    videoStarted = true;
-                    overlay.classList.add('hidden');
-                    
-                    console.log('✅ Видео успешно запущено!');
-                    
-                    // Полностью убираем overlay через полсекунды
-                    setTimeout(() => {
-                        overlay.style.display = 'none';
-                    }, 500);
-                })
-                .catch(error => {
-                    console.error(`❌ Ошибка #${retryCount}:`, error.name, '-', error.message);
-                    isPlaying = false;
-                    
-                    // Повторные попытки с увеличивающейся задержкой
-                    if (retryCount < MAX_RETRIES) {
-                        const delay = Math.min(retryCount * 100, 1000);
-                        console.log(`⏳ Повтор через ${delay}мс...`);
-                        
-                        return new Promise(resolve => {
-                            setTimeout(() => {
-                                resolve(forcePlayVideo());
-                            }, delay);
-                        });
-                    } else {
-                        console.error('💥 Превышен лимит попыток запуска');
-                        // Показываем более явное сообщение пользователю
-                        overlay.querySelector('.tap-message').innerHTML = 
-                            'Нажмите ЗДЕСЬ<br>для запуска';
-                    }
-                });
-        }
-        
-        // Обработчик взаимодействия пользователя
-        function handleUserInteraction(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            console.log('👆 Пользователь коснулся экрана');
-            
-            if (!videoStarted) {
-                // Загружаем видео только после касания
-                if (video.readyState === 0) {
-                    console.log('📥 Загрузка видео...');
-                    video.load();
-                }
-                
-                // Небольшая задержка для загрузки
-                setTimeout(() => {
-                    forcePlayVideo();
-                }, 100);
-            } else {
-                // Если видео уже было запущено, просто возобновляем
-                forcePlayVideo();
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        console.log('✅ Видео запущено успешно!');
+                        overlay.classList.add('hidden');
+                    })
+                    .catch(error => {
+                        console.error('❌ Ошибка воспроизведения:', error);
+                        showError('Ошибка: ' + error.message);
+                    });
             }
         }
         
-        // Множественные обработчики для надежности
-        overlay.addEventListener('click', handleUserInteraction, { passive: false });
-        overlay.addEventListener('touchstart', handleUserInteraction, { passive: false });
-        overlay.addEventListener('touchend', handleUserInteraction, { passive: false });
-        
-        // Глобальные обработчики на весь документ
-        document.addEventListener('click', handleUserInteraction, { once: true });
-        document.addEventListener('touchstart', handleUserInteraction, { once: true });
-        
-        // Предотвращаем остановку видео
-        video.addEventListener('pause', function(e) {
-            if (videoStarted && !document.hidden) {
-                console.log('⚠️ Видео остановилось, перезапуск...');
-                setTimeout(() => {
-                    forcePlayVideo();
-                }, 50);
-            }
+        // События видео
+        video.addEventListener('loadstart', function() {
+            console.log('📥 Начало загрузки видео');
         });
         
-        // Возобновление при возврате на страницу
-        document.addEventListener('visibilitychange', function() {
-            console.log('👁️ Видимость изменилась:', !document.hidden);
-            
-            if (!document.hidden && videoStarted) {
-                console.log('🔄 Возобновление видео...');
-                
-                setTimeout(() => {
-                    forcePlayVideo();
-                }, 200);
-            } else if (document.hidden) {
-                isPlaying = false;
-            }
+        video.addEventListener('loadedmetadata', function() {
+            console.log('📹 Метаданные загружены');
+            console.log('⏱️ Длительность:', video.duration, 'сек');
+            console.log('📐 Размер:', video.videoWidth, 'x', video.videoHeight);
         });
         
-        // События для отслеживания состояния видео
-        video.addEventListener('playing', function() {
-            console.log('▶️ Видео играет');
-            isPlaying = true;
-        });
-        
-        video.addEventListener('waiting', function() {
-            console.log('⏳ Видео буферизуется...');
+        video.addEventListener('loadeddata', function() {
+            console.log('📊 Данные загружены, ReadyState:', video.readyState);
         });
         
         video.addEventListener('canplay', function() {
             console.log('✅ Видео готово к воспроизведению');
         });
         
+        video.addEventListener('canplaythrough', function() {
+            console.log('✅ Видео полностью буферизовано');
+        });
+        
+        video.addEventListener('playing', function() {
+            console.log('▶️ Видео воспроизводится');
+            overlay.classList.add('hidden');
+        });
+        
         video.addEventListener('error', function(e) {
-            console.error('💥 Ошибка видео:', video.error);
+            const error = video.error;
+            let errorText = 'Неизвестная ошибка';
+            
+            if (error) {
+                switch(error.code) {
+                    case 1:
+                        errorText = 'Загрузка прервана';
+                        break;
+                    case 2:
+                        errorText = 'Ошибка сети';
+                        break;
+                    case 3:
+                        errorText = 'Ошибка декодирования';
+                        break;
+                    case 4:
+                        errorText = 'Видео не найдено или формат не поддерживается';
+                        break;
+                }
+                console.error('💥 Ошибка видео (код ' + error.code + '):', errorText);
+                console.error('💥 Сообщение:', error.message);
+            }
+            
+            showError(errorText);
         });
         
         video.addEventListener('stalled', function() {
-            console.warn('⚠️ Загрузка видео остановилась');
+            console.warn('⚠️ Загрузка остановилась');
         });
         
-        // Предотвращаем скролл на мобильных
-        document.addEventListener('touchmove', function(e) {
-            e.preventDefault();
-        }, { passive: false });
+        video.addEventListener('waiting', function() {
+            console.log('⏳ Буферизация...');
+        });
         
-        // Предотвращаем зум на двойное касание
-        let lastTouchEnd = 0;
-        document.addEventListener('touchend', function(e) {
-            const now = Date.now();
-            if (now - lastTouchEnd <= 300) {
-                e.preventDefault();
+        video.addEventListener('pause', function() {
+            if (clicked && !document.hidden) {
+                console.log('⏸️ Видео остановлено, перезапуск...');
+                video.play().catch(err => console.error('Не удалось перезапустить:', err));
             }
-            lastTouchEnd = now;
-        }, false);
+        });
         
-        // Для Яндекс Браузера: не пытаемся автозапуск
-        if (isYandexBrowser && isMobile) {
-            console.log('⚠️ Яндекс Браузер: автозапуск отключен, требуется касание');
-            video.preload = 'none'; // Не загружаем видео до взаимодействия
-        }
+        // Обработчики кликов
+        overlay.addEventListener('click', startVideo);
+        overlay.addEventListener('touchstart', startVideo, { passive: true });
         
-        // Обработка режима страницы в картинке
-        if (document.pictureInPictureEnabled) {
-            video.addEventListener('enterpictureinpicture', function() {
-                console.log('🖼️ Вошли в режим PiP');
-            });
-            
-            video.addEventListener('leavepictureinpicture', function() {
-                console.log('🖼️ Вышли из режима PiP');
-                if (videoStarted) {
-                    forcePlayVideo();
-                }
-            });
-        }
+        // Проверка возможности автозапуска
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📱 User Agent:', navigator.userAgent);
+            console.log('🌐 Браузер:', 
+                /yabrowser/i.test(navigator.userAgent) ? 'Яндекс' :
+                /chrome/i.test(navigator.userAgent) ? 'Chrome' :
+                /safari/i.test(navigator.userAgent) ? 'Safari' :
+                'Другой'
+            );
+        });
         
-        console.log('🎯 Скрипт инициализирован. Ожидание взаимодействия пользователя...');
+        // Возобновление при возврате на страницу
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && clicked) {
+                console.log('👁️ Страница снова видима');
+                video.play().catch(err => console.error('Ошибка:', err));
+            }
+        });
+        
+        // Проверка через 3 секунды после попытки запуска
+        setTimeout(() => {
+            if (clicked && video.paused) {
+                console.error('⚠️ Видео не запустилось за 3 секунды');
+                showError('Видео не удалось запустить. Проверьте файл background.mp4');
+            }
+        }, 3000);
     </script>
 </body>
 </html>
