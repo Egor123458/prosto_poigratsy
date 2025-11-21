@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Видео на фоне</title>
+    <title>-_-</title>
     <style>
         * {
             margin: 0;
@@ -26,6 +26,7 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
+            background: #000;
         }
         
         video {
@@ -38,64 +39,69 @@
             height: auto;
             transform: translate(-50%, -50%);
             object-fit: cover;
+            background: #000;
         }
         
-        /* Оверлей для первого тапа (для Яндекса) */
         #tap-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.8);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 9999;
             cursor: pointer;
             font-family: Arial, sans-serif;
+            transition: opacity 0.3s;
         }
         
         #tap-overlay.hidden {
-            display: none;
+            opacity: 0;
+            pointer-events: none;
         }
         
         .tap-message {
             color: #fff;
             font-size: 24px;
             text-align: center;
-            padding: 20px;
+            padding: 20px 40px;
             background: rgba(0, 255, 0, 0.2);
             border: 2px solid #00ff00;
             border-radius: 10px;
             animation: pulse 2s infinite;
+            user-select: none;
+            -webkit-user-select: none;
         }
         
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.05); }
         }
     </style>
 </head>
 <body>
-    <!-- Оверлей для запуска -->
     <div id="tap-overlay">
         <div class="tap-message">
-            👆 Нажмите для запуска
+            👆 Нажмите для запуска видео
         </div>
     </div>
 
     <div id="video-container">
         <video 
             id="bg-video"
-            muted 
-            loop 
+            muted
+            loop
             playsinline
             webkit-playsinline
-            preload="auto"
+            preload="metadata"
             x-webkit-airplay="allow"
+            disablePictureInPicture
         >
             <source src="background.mp4" type="video/mp4">
+            Ваш браузер не поддерживает видео.
         </video>
     </div>
 
@@ -103,71 +109,103 @@
         const video = document.getElementById('bg-video');
         const overlay = document.getElementById('tap-overlay');
         let videoStarted = false;
+        let playAttempts = 0;
+        const maxAttempts = 5;
 
-        // Функция запуска видео
         function startVideo() {
-            if (!videoStarted) {
-                video.muted = true; // Принудительно без звука
-                
-                const playPromise = video.play();
-                
-                if (playPromise !== undefined) {
-                    playPromise
-                        .then(() => {
-                            videoStarted = true;
-                            overlay.classList.add('hidden');
-                            console.log('Видео запущено');
-                        })
-                        .catch(error => {
-                            console.log('Ошибка запуска:', error);
-                            // Повторная попытка через 100мс
+            if (videoStarted) return;
+            
+            video.muted = true;
+            video.volume = 0;
+            
+            playAttempts++;
+            console.log(`Попытка запуска видео #${playAttempts}`);
+            
+            const playPromise = video.play();
+            
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        videoStarted = true;
+                        overlay.classList.add('hidden');
+                        console.log('✅ Видео успешно запущено');
+                        
+                        setTimeout(() => {
+                            overlay.style.display = 'none';
+                        }, 300);
+                    })
+                    .catch(error => {
+                        console.log('❌ Ошибка запуска:', error.name, error.message);
+                        
+                        if (playAttempts < maxAttempts) {
                             setTimeout(() => {
-                                video.play();
-                            }, 100);
-                        });
-                }
+                                startVideo();
+                            }, 200);
+                        }
+                    });
             }
         }
 
-        // Попытка автозапуска
         document.addEventListener('DOMContentLoaded', function() {
-            // Пробуем запустить сразу
-            startVideo();
+            console.log('🔄 DOM загружен, попытка автозапуска');
             
-            // Если не сработало — ждём взаимодействия
+            video.load();
+            
             setTimeout(() => {
-                if (!videoStarted) {
-                    console.log('Автозапуск не удался, требуется взаимодействие');
-                }
-            }, 1000);
+                startVideo();
+            }, 100);
         });
 
-        // Клик/тап для запуска
-        overlay.addEventListener('click', startVideo);
-        overlay.addEventListener('touchstart', startVideo);
+        function handleUserInteraction(e) {
+            e.preventDefault();
+            startVideo();
+        }
 
-        // Запуск при любом взаимодействии с документом
+        overlay.addEventListener('click', handleUserInteraction);
+        overlay.addEventListener('touchstart', handleUserInteraction, { passive: false });
+
         document.addEventListener('click', startVideo, { once: true });
-        document.addEventListener('touchstart', startVideo, { once: true });
+        document.addEventListener('touchstart', startVideo, { once: true, passive: true });
 
-        // Держим видео активным
         video.addEventListener('pause', function() {
-            if (videoStarted) {
-                video.play();
+            if (videoStarted && !document.hidden) {
+                console.log('⚠️ Видео остановлено, перезапуск...');
+                video.play().catch(err => console.log('Не удалось перезапустить:', err));
             }
         });
 
-        // Перезапуск при возврате на страницу
         document.addEventListener('visibilitychange', function() {
             if (!document.hidden && videoStarted) {
-                video.play();
+                console.log('👁️ Вкладка стала видимой, перезапуск видео');
+                setTimeout(() => {
+                    video.play().catch(err => console.log('Ошибка перезапуска:', err));
+                }, 100);
             }
         });
 
-        // Предотвращение прокрутки
+        video.addEventListener('loadedmetadata', function() {
+            console.log('📹 Метаданные видео загружены');
+        });
+
+        video.addEventListener('canplay', function() {
+            console.log('▶️ Видео готово к воспроизведению');
+        });
+
+        video.addEventListener('error', function(e) {
+            console.error('❌ Ошибка загрузки видео:', e);
+        });
+
         document.addEventListener('touchmove', function(e) {
-            e.preventDefault();
+            if (e.target === overlay || e.target.closest('#video-container')) {
+                e.preventDefault();
+            }
         }, { passive: false });
+
+        const isYandexBrowser = /YaBrowser/i.test(navigator.userAgent);
+        if (isYandexBrowser) {
+            console.log('🟡 Обнаружен Яндекс Браузер');
+            video.preload = 'auto';
+        }
     </script>
 </body>
 </html>
